@@ -1,3 +1,6 @@
+###This script is to examine how nested treatment works and whether the nesting syntax in R actually works or is it for naming issue scenarios
+
+##First, create pseudo-data
 grow=5
 sen=0
 summer=grow+1
@@ -17,6 +20,8 @@ d1=with(data, data.frame(summer, spring, fall, winter))
 
 d2=gather(d1, key='season', value='biomass')
 d2$growth=with(data, c(as.character(summer.growth), as.character(spring.growth), as.character(fall.growth), as.character(winter.growth)))
+##We have now created a dataframe where there are effects of each season and also an effect of each growth period
+##The hypothesis we want to test is whether R can parse out the effects of both (and if so, what is the model formulation requireds)
 
 data.lm=lm(biomass~season, data=d2)
 summary(data.lm)
@@ -25,14 +30,14 @@ library(emmeans)
 emmeans(data.lm, ~season)
 contrast(emmeans(data.lm, ~season), method='tukey')
 
-##Let's try with both season and growth (but with interaction which doesn't make sense)
+##Let's try with both season and growth 
 data.lm2=lm(biomass~season*growth, data=d2)
 summary(data.lm2) ### a lot of NAs because nonsenscial interactions rightfully so. But the effect of sen is also NA...
 ##And rightfully so, can't estiamte the interaction between senesce and spring/summer
 emmeans(data.lm2, ~season) #interesting note from R 'a nesting structure was detected in the fitted model'
 emmeans(data.lm2, ~growth) #Was able to compare the effect of growth vs sen even though sen came out as NA in the summary output...
 emmeans(data.lm2, ~growth|season) #This doesn't work
-d2.em=emmeans(data.lm2, ~season|growth) #3This sort of works (follow up below)
+d2.em=emmeans(data.lm2, ~season|growth) #This sort of works (follow up below)
 contrast(d2.em, method='tukey') ##Thiis nicely tells the relative difference between spring vs summer and fall vs winter (allowing us to decude the relative effect of the seasons are +/- 1)
 
 
@@ -40,7 +45,7 @@ contrast(d2.em, method='tukey') ##Thiis nicely tells the relative difference bet
 data.lm2=lm(biomass~growth+season, data=d2)
 summary(data.lm2) ##Hmm, still no effect of growthsen in the summary output
 					####But this effect changes if you switch the order of growth and season!!! Such that if growth comes first, we now see an effect of sen (but no effect of 							summer)
-					####Ah!!! That's because of the arbitrary nature of the lm coefficient estimates!
+					#### That's because of the arbitrary nature of the lm coefficient estimates
 					###The intercept represents one particular season/growth combination but doesn't realize it has the effect of both: the model thinks the intercept is just a 					particular season or a particular growth. Then when it tries to measure the corresponding counterpart of its season or growth, it can't(!) because it was 					already all explained in the estimate and there aren't any other combinations for it to be measured. All because of the nested structure (that's important)
 					####All in all, this tells me to look at the emmeans instead of the model output
 anova(data.lm2) ##And no growth seen in the anova (but if the order is switched, then we do see both effects)
